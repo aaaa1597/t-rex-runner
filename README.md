@@ -1,0 +1,2 @@
+# t-rex-runner
+JavaScriptのゲームプログラム
