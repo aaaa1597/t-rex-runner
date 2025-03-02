@@ -22,7 +22,6 @@
     this.outerContainerEl = document.querySelector(outerContainerId);
     this.containerEl = null;
     this.snackbarEl = null;
-    this.detailsButton = this.outerContainerEl.querySelector('#details-button');
 
     this.config = opt_config || Runner.config;
 
@@ -86,7 +85,7 @@
   var IS_HIDPI = window.devicePixelRatio > 1;
 
   /** @const */
-  var IS_IOS = /iPad|iPhone|iPod/.test(window.navigator.platform);
+  var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   /** @const */
   var IS_MOBILE = /Android/.test(window.navigator.userAgent) || IS_IOS;
@@ -312,9 +311,6 @@
      * Game initialiser.
      */
     init: function () {
-      // Hide the static icon.
-      document.querySelector('.' + Runner.classes.ICON).style.visibility = 'hidden';
-
       this.adjustDimensions();
       this.setSpeed();
 
@@ -631,28 +627,26 @@
           e.preventDefault();
       }
 
-      if (e.target != this.detailsButton) {
-        if (!this.crashed && (Runner.keycodes.JUMP[e.keyCode] ||
-          e.type == Runner.events.TOUCHSTART)) {
-          if (!this.playing) {
-            this.loadSounds();
-            this.playing = true;
-            this.update();
-            if (window.errorPageController) {
-              errorPageController.trackEasterEgg();
-            }
-          }
-          //  Play sound effect and jump on starting the game for the first time.
-          if (!this.tRex.jumping && !this.tRex.ducking) {
-            this.playSound(this.soundFx.BUTTON_PRESS);
-            this.tRex.startJump(this.currentSpeed);
+      if (!this.crashed && (Runner.keycodes.JUMP[e.keyCode] ||
+        e.type == Runner.events.TOUCHSTART)) {
+        if (!this.playing) {
+          this.loadSounds();
+          this.playing = true;
+          this.update();
+          if (window.errorPageController) {
+            errorPageController.trackEasterEgg();
           }
         }
+        //  Play sound effect and jump on starting the game for the first time.
+        if (!this.tRex.jumping && !this.tRex.ducking) {
+          this.playSound(this.soundFx.BUTTON_PRESS);
+          this.tRex.startJump(this.currentSpeed);
+        }
+      }
 
-        if (this.crashed && e.type == Runner.events.TOUCHSTART &&
-          e.currentTarget == this.containerEl) {
-          this.restart();
-        }
+      if (this.crashed && e.type == Runner.events.TOUCHSTART &&
+        e.currentTarget == this.containerEl) {
+        this.restart();
       }
 
       if (this.playing && !this.crashed && Runner.keycodes.DUCK[e.keyCode]) {
