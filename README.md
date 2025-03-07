@@ -235,3 +235,119 @@ rect rgba(255, 0, 255, 0.03)
   %% } // --------------- Runner::init()
 end
 ```
+
+### ゲーム開始
+
+```mermaid
+sequenceDiagram
+actor user as ユーザ
+participant js as JavaScript
+participant runner as Runner
+participant distanceMeter as DistanceMeter
+participant horizon as Horizon
+participant horizonLine as HorizonLine
+participant cloud as Cloud
+participant nightMode as NightMode
+participant tRex as TRex
+participant gameOverPanel as GameOverPanel
+
+user ->> js: [↑ or space]キーDown
+js ->> runner: handleEvent()
+runner ->> runner: onKeyDown()
+activate runner
+alt !crashed && (ジャンプキー||タッチ)
+  runner ->> runner: loadSounds()
+  activate runner
+    opt !IS_IOS
+      runner ->> js: new AudioContext()
+      Note over runner: 音声データデコード
+      Note over runner: バッファ格納(this.soundFx{})
+    end
+  deactivate runner
+  Note over runner: playing = true
+  runner ->> runner: update()
+deactivate runner
+  alt playing==true
+    runner ->> runner: clearCanvas()
+    activate runner
+      runner ->> js: canvasCtx.clearRect()
+    alt tRex.jumping
+      runner ->> tRex: updateJump(deltaTime)
+    end
+    alt tRex.jumpCount == 1 && !this.playingIntro
+      activate runner
+        runner ->> runner: playIntro()
+        alt !this.activated && !this.crashed
+          runner ->> js: getElement('runner-container')<br/>.addEventListener('webkitAnimationEnd', startGame)
+          Note over runner: playing = true
+          Note over runner: activated = true
+        else this.crashed
+          runner ->> runner: restart()
+          Note over runner: playCount++
+          Note over runner: playing = true
+          Note over runner: crashed = false
+          runner ->> runner: setSpeed(6)
+          runner ->> js: getElement('runner-container')<br/>.classList.remove('crashed')
+          runner ->> runner: clearCanvas()
+          runner ->> distanceMeter: reset()
+          distanceMeter ->> distanceMeter: update()
+          activate distanceMeter
+            distanceMeter ->> distanceMeter: draw()
+            activate distanceMeter
+              distanceMeter ->> js: canvasCtx.save()
+              distanceMeter ->> js: canvasCtx.translate()
+              distanceMeter ->> js: canvasCtx.drawImage()
+              distanceMeter ->> js: canvasCtx.restore()
+            deactivate distanceMeter
+          deactivate distanceMeter
+          activate distanceMeter
+            distanceMeter ->> distanceMeter: drawHighScore()
+            activate distanceMeter
+              distanceMeter ->> js: canvasCtx.save()
+              distanceMeter ->> js: canvasCtx.draw()
+              distanceMeter ->> js: canvasCtx.restore()
+            deactivate distanceMeter
+          deactivate distanceMeter
+          runner ->> horizon: reset()
+          activate horizon
+            horizon ->> horizonLine: reset()
+            horizon ->> nightMode: reset()
+            activate nightMode
+              nightMode ->> nightMode: update()
+              nightMode ->> nightMode: updateXPos()
+              activate nightMode
+                alt this.opacity > 0
+                  nightMode ->> js: canvasCtx.save()
+                  nightMode ->> js: canvasCtx.drawImage()
+                  nightMode ->> js: canvasCtx.drawImage()
+                  nightMode ->> js: canvasCtx.restore()
+                else
+                  nightMode ->> nightModejs: placeStars()
+                end
+              deactivate nightMode
+            deactivate nightMode
+          deactivate horizon
+          runner ->> tRex: reset()
+          tRex ->> tRex: update()
+          alt (opt_status==<br/>Trex.status.WAITING)
+            tRex ->> tRex: setBlinkDelay()
+          else if(this.status==<br/>Trex.status.WAITING)
+            tRex ->> tRex: blink()
+          else (this.speedDrop &&<br/>this.yPos==<br/>this.groundYPos)
+            tRex ->> tRex: setDuck()
+          end
+          runner ->> js: playSound(soundFx.BUTTON_PRESS)
+          runner ->> runner: invert(true)
+          runner ->> runner: update()
+        end
+      deactivate runner
+    end
+    deactivate runner
+  end
+  activate runner
+    runner ->> runner: update()
+  deactivate runner
+else aaaaaaaaaaaaa
+end
+
+```
