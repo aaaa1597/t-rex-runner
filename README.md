@@ -255,99 +255,107 @@ user ->> js: [↑ or space]キーDown
 js ->> runner: handleEvent()
 runner ->> runner: onKeyDown()
 activate runner
-alt !crashed && (ジャンプキー||タッチ)
-  runner ->> runner: loadSounds()
-  activate runner
-    opt !IS_IOS
-      runner ->> js: new AudioContext()
-      Note over runner: 音声データデコード
-      Note over runner: バッファ格納(this.soundFx{})
-    end
-  deactivate runner
-  Note over runner: playing = true
-  runner ->> runner: update()
-deactivate runner
-  alt playing==true
-    runner ->> runner: clearCanvas()
-    activate runner
-      runner ->> js: canvasCtx.clearRect()
-    alt tRex.jumping
-      runner ->> tRex: updateJump(deltaTime)
-    end
-    alt tRex.jumpCount == 1 && !this.playingIntro
+  alt (IS_MOBILE && this.playing)
+    runner ->> js: preventDefault()
+  end
+  alt !crashed && (ジャンプキー||タッチ)
+    alt (!this.playing)
+      runner ->> runner: loadSounds()
       activate runner
-        runner ->> runner: playIntro()
-        alt !this.activated && !this.crashed
-          runner ->> js: getElement('runner-container')<br/>.addEventListener('webkitAnimationEnd', startGame)
-          Note over runner: playing = true
-          Note over runner: activated = true
-        else this.crashed
-          runner ->> runner: restart()
-          Note over runner: playCount++
-          Note over runner: playing = true
-          Note over runner: crashed = false
-          runner ->> runner: setSpeed(6)
-          runner ->> js: getElement('runner-container')<br/>.classList.remove('crashed')
+        opt !IS_IOS
+          runner ->> js: new AudioContext()
+          Note over runner: 音声データデコード
+          Note over runner: バッファ格納(this.soundFx{})
+        end
+        Note over runner: playing = true
+        runner ->> runner: update()
+        alt playing==true
           runner ->> runner: clearCanvas()
-          runner ->> distanceMeter: reset()
-          distanceMeter ->> distanceMeter: update()
-          activate distanceMeter
-            distanceMeter ->> distanceMeter: draw()
-            activate distanceMeter
-              distanceMeter ->> js: canvasCtx.save()
-              distanceMeter ->> js: canvasCtx.translate()
-              distanceMeter ->> js: canvasCtx.drawImage()
-              distanceMeter ->> js: canvasCtx.restore()
-            deactivate distanceMeter
-          deactivate distanceMeter
-          activate distanceMeter
-            distanceMeter ->> distanceMeter: drawHighScore()
-            activate distanceMeter
-              distanceMeter ->> js: canvasCtx.save()
-              distanceMeter ->> js: canvasCtx.draw()
-              distanceMeter ->> js: canvasCtx.restore()
-            deactivate distanceMeter
-          deactivate distanceMeter
-          runner ->> horizon: reset()
-          activate horizon
-            horizon ->> horizonLine: reset()
-            horizon ->> nightMode: reset()
-            activate nightMode
-              nightMode ->> nightMode: update()
-              nightMode ->> nightMode: updateXPos()
-              activate nightMode
-                alt this.opacity > 0
-                  nightMode ->> js: canvasCtx.save()
-                  nightMode ->> js: canvasCtx.drawImage()
-                  nightMode ->> js: canvasCtx.drawImage()
-                  nightMode ->> js: canvasCtx.restore()
-                else
-                  nightMode ->> nightModejs: placeStars()
-                end
-              deactivate nightMode
-            deactivate nightMode
-          deactivate horizon
-          runner ->> tRex: reset()
-          tRex ->> tRex: update()
-          alt (opt_status==<br/>Trex.status.WAITING)
-            tRex ->> tRex: setBlinkDelay()
-          else if(this.status==<br/>Trex.status.WAITING)
-            tRex ->> tRex: blink()
-          else (this.speedDrop &&<br/>this.yPos==<br/>this.groundYPos)
-            tRex ->> tRex: setDuck()
+          activate runner
+            runner ->> js: canvasCtx.clearRect()
+            alt tRex.jumping
+              runner ->> tRex: updateJump(deltaTime)
+            end
+          deactivate runner
+          alt (tRex.jumpCount == 1 && !this.playingIntro)
+            runner ->> runner: playIntro()
+            activate runner
+              alt (!this.activated && !this.crashed)
+                Note over runner: playingIntro = true
+                Note over tRex: playingIntro = true
+                runner ->> runner: containerEl.addEventListener('webkitAnimationEnd', startGame)
+                Note over runner: playing = true
+                Note over runner: activated = true
+              else
+                runner ->> runner: restart()
+                activate runner
+                  Note over runner: playCount++
+                  Note over runner: runningTime = 0
+                  Note over runner: playing = true
+                  Note over runner: crashed = false
+                  Note over runner: distanceRan = 0
+                  runner ->> runner: setSpeed(6)
+                  Note over runner: time = 現在時刻
+                  runner ->> runner: containerEl.classList.remove('crashed');
+                  runner ->> runner: clearCanvas();
+                  runner ->> distanceMeter: reset(this.highestScore);
+                  runner ->> horizon: reset();
+                  runner ->> tRex: reset();
+                  runner ->> runner: playSound(this.soundFx.BUTTON_PRESS);
+                  runner ->> runner: invert(true);
+                  runner ->> runner: update();
+                deactivate runner
+              end
+            deactivate runner
           end
-          runner ->> js: playSound(soundFx.BUTTON_PRESS)
-          runner ->> runner: invert(true)
-          runner ->> runner: update()
+          alt (this.playingIntro)
+            runner ->> horizon: update(0, this.currentSpeed, hasObstacles)
+          else
+            runner ->> horizon: update(deltaTime, this.currentSpeed, hasObstacles, this.inverted)
+          end
+          Note over runner: var collision = hasObstacles && checkForCollision(this.horizon.obstacles[0], this.tRex);
+          alt (!collision)
+            Note over runner: スピード加速
+          else
+            runner ->> runner: gameOver()
+          end
+          runner ->> distanceMeter: playAchievementSound = update()
+          alt (playAchievementSound)
+            runner ->> runner: playSound()
+          end
+          alt (this.invertTimer > this.config.INVERT_FADE_DURATION)
+            runner ->> runner: invert()
+          else if (this.invertTimer)
+            Note over runner: タイマ更新
+          else
+            runner ->> distanceMeter: actualDistance = getActualDistance()
+            alt (actualDistance > 0)
+              runner ->> runner: invert()
+            end
+          end
+        end
+        alt (this.playing || (!this.activated && this.tRex.blinkCount < Runner.config.MAX_BLINK_COUNT))
+          runner ->> tRex: update()
+          runner ->> runner: scheduleNextUpdate()
+          runner ->> js: requestAnimationFrame()
         end
       deactivate runner
     end
-    deactivate runner
+    alt (!this.tRex.jumping && !this.tRex.ducking)
+      runner ->> js: playSound(soundFx.BUTTON_PRESS)
+      runner ->> tRex: startJump()
+    end
+    alt (this.crashed && e.type == Runner.events.TOUCHSTART && e.currentTarget == this.containerEl)
+      runner ->> runner: restart()
+    end
+    alt (this.playing && !this.crashed && しゃがみ==true)
+      runner ->> js: preventDefault()
+      alt (this.tRex.jumping)
+        runner ->> tRex: setSpeedDrop()
+      else if (!this.tRex.jumping && !this.tRex.ducking)
+        tRex ->> tRex: setDuck()
+      end
+    end
   end
-  activate runner
-    runner ->> runner: update()
-  deactivate runner
-else aaaaaaaaaaaaa
-end
-
+deactivate runner
 ```
